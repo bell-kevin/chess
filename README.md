@@ -1,5 +1,3 @@
-chess
-
 The AI bot in this chess game is a sophisticated chess engine that uses several advanced techniques to provide challenging gameplay across five difficulty levels:
 
 Core AI Architecture
