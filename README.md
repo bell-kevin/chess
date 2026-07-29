@@ -1,3 +1,7 @@
+<a name="readme-top"></a>
+
+# Chess
+
 No castling allowed
 
 The AI bot in this chess game is a sophisticated chess engine that uses several advanced techniques to provide challenging gameplay across five difficulty levels:
@@ -43,3 +47,5 @@ Endgame Understanding: Maintains strong play throughout all game phases
 Adaptive Timing: Takes a 1-second pause before moving to create a natural playing experience
 
 This creates a chess opponent that scales from teaching tool to serious challenge, making it suitable for players of all skill levels.
+
+<p align="right"><a href="#readme-top">back to top</a></p>
