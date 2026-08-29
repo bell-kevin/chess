@@ -37,17 +37,16 @@ const MIN_THINKING_MS = 350;
 export const useChessGame = (
   initialDifficulty: Difficulty = 'medium',
 ): ChessGameController => {
-  const gameRef = useRef<ChessGame | null>(null);
-  if (gameRef.current === null) gameRef.current = new ChessGame();
-  const game = gameRef.current;
+  const [game] = useState(() => new ChessGame());
 
   const [state, setState] = useState<GameState>(() => game.getGameState());
   const [selected, setSelected] = useState<Position | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(
     null,
   );
-  const [isThinking, setIsThinking] = useState(false);
   const [difficulty, setDifficultyState] = useState<Difficulty>(initialDifficulty);
+
+  const isThinking = state.currentPlayer === BOT_COLOR && !state.gameOver;
 
   const runnerRef = useRef<BotRunner | null>(null);
   /**
@@ -82,7 +81,6 @@ export const useChessGame = (
 
   const invalidateSearch = useCallback(() => {
     turnToken.current += 1;
-    setIsThinking(false);
   }, []);
 
   // Computed on every render rather than memoised: the engine caches its legal
@@ -184,8 +182,6 @@ export const useChessGame = (
     const runner = getRunner();
     const token = ++turnToken.current;
     let cancelled = false;
-    setIsThinking(true);
-
     const startedAt = Date.now();
     const fen = game.toFEN();
 
@@ -196,7 +192,6 @@ export const useChessGame = (
 
         const settle = () => {
           if (cancelled || token !== turnToken.current) return;
-          setIsThinking(false);
           if (!move) return;
           // The engine validates, so an unexpected reply is dropped rather
           // than trusted; the effect will simply run again.
@@ -209,7 +204,6 @@ export const useChessGame = (
       })
       .catch((error) => {
         console.error('Chess bot failed:', error);
-        if (!cancelled) setIsThinking(false);
       });
 
     return () => {

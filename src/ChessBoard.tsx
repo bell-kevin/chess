@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { GameState, Move, Position } from './types';
 import {
   FILES,
@@ -35,10 +35,6 @@ export const ChessBoard = ({
    */
   const [focusedSquare, setFocusedSquare] = useState<Position>({ row: 7, col: 4 });
   const boardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (selected) setFocusedSquare(selected);
-  }, [selected]);
 
   const focusSquare = useCallback((position: Position) => {
     setFocusedSquare(position);
