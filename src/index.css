@@ -1,3 +1,100 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    /* Stops iOS Safari from bumping the font size when the device rotates. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    /* Rubber-band scrolling drags the whole board around on iOS otherwise. */
+    overscroll-behavior: none;
+  }
+
+  /* Only show focus rings for keyboard users, but never suppress them entirely. */
+  :focus-visible {
+    outline: 2px solid theme('colors.sky.300');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /*
+   * The board is sized from the viewport rather than a fixed pixel width, so it
+   * fits a 320px phone in portrait and a short phone in landscape alike.
+   * `dvh` tracks the visible viewport as mobile browser chrome slides away.
+   */
+  .board-frame {
+    --board-size: min(
+      92vw,
+      calc(100dvh - 19rem),
+      34rem
+    );
+    --square-size: calc(var(--board-size) / 8);
+    width: var(--board-size);
+    /* Guarantees a usable board even in a very short landscape window. */
+    min-width: 15rem;
+  }
+
+  @media (min-width: 1024px) {
+    .board-frame {
+      --board-size: min(52vw, calc(100dvh - 9rem), 40rem);
+    }
+  }
+
+  /*
+   * Short landscape: height is the binding constraint, not width. 7rem is the
+   * status line, the control row and the gaps around them, measured with the
+   * header hidden - anything less and the eighth rank falls off screen.
+   */
+  @media (orientation: landscape) and (max-height: 600px) {
+    .board-frame {
+      --board-size: min(calc(100dvh - 7.5rem), 55vw, 34rem);
+      min-width: 12rem;
+    }
+  }
+
+  .board-square {
+    /* Pieces scale with the square, so they never overflow or look lost. */
+    font-size: calc(var(--square-size) * 0.72);
+    line-height: 1;
+    /* Squares are tap targets: suppress double-tap zoom and the grey flash. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .board-coordinate {
+    font-size: max(0.5rem, calc(var(--square-size) * 0.2));
+    line-height: 1;
+  }
+
+  /* The dot marking a legal, non-capturing destination. */
+  .move-hint::after {
+    content: '';
+    position: absolute;
+    width: 30%;
+    height: 30%;
+    border-radius: 9999px;
+    background-color: rgb(15 23 42 / 0.35);
+  }
+
+  /* A ring instead of a dot when the destination holds a piece to capture. */
+  .capture-hint::after {
+    content: '';
+    position: absolute;
+    inset: 6%;
+    border-radius: 9999px;
+    border: max(2px, calc(var(--square-size) * 0.07)) solid rgb(15 23 42 / 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

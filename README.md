@@ -1,45 +1,75 @@
-chess
+<a name="readme-top"></a>
 
-The AI bot in this chess game is a sophisticated chess engine that uses several advanced techniques to provide challenging gameplay across five difficulty levels:
+# Chess
 
-Core AI Architecture
+A chess game against an AI opponent, built with React, TypeScript and Vite.
 
-Minimax Algorithm with Alpha-Beta Pruning: The bot uses the classic minimax algorithm to evaluate potential moves by looking ahead several moves into the future. Alpha-beta pruning optimizes this by eliminating branches that won't affect the final decision, making the AI much faster.
+https://playchessonline.org/
 
-Position Evaluation: The bot evaluates chess positions using multiple factors:
+## Rules
 
-Material Value: Standard piece values (pawn=100, knight=320, bishop=330, rook=500, queen=900, king=20000)
+The engine implements the full rules of chess:
 
-Positional Value: Uses piece-square tables to prefer better piece placement
+- **Castling**, both sides, with every restriction: the king and rook must be
+  unmoved, the squares between them empty, and the king may not castle out of,
+  through, or into check.
+- **En passant**, including the case where the capture is illegal because it
+  would expose the king along the rank.
+- **Promotion** to a queen, rook, bishop or knight — under-promotion is offered
+  rather than assumed.
+- **Draws**: stalemate, insufficient material, the fifty-move rule and
+  threefold repetition.
 
-Center Control: Rewards controlling central squares (d4, d5, e4, e5)
+Move generation is verified against the standard [perft][perft] node counts to
+depth 5 from six reference positions, which is what makes the castling and en
+passant corner cases trustworthy rather than merely untested.
 
-King Safety: Discourages early king moves in the opening
+[perft]: https://www.chessprogramming.org/Perft_Results
 
-Development: Penalizes moving the same piece multiple times early in the game
+## The AI
 
-Difficulty Levels
+The bot searches with **negamax and alpha-beta pruning**, driven by iterative
+deepening under a wall-clock budget so it always answers promptly:
 
-Very Easy: Plays completely random legal moves - perfect for absolute beginners learning the rules.
+- **Quiescence search** extends along captures and promotions, so the bot never
+  evaluates a position in the middle of a trade and hands you a piece.
+- **Move ordering** by most-valuable-victim / least-valuable-attacker, plus
+  killer moves, which is what makes the pruning effective.
+- **Evaluation** combines material, piece-square tables (with a separate king
+  table for the endgame), the bishop pair, and doubled, isolated and passed
+  pawns.
+- **Mate scores** fold in the distance to mate, so the bot prefers the quickest
+  win and the most stubborn defence.
 
-Easy: Mostly random but has a 60% chance to prefer captures when available, adding slight tactical awareness.
+The search runs in a **Web Worker**, so even the deepest setting never freezes
+the board — which matters most on a phone.
 
-Medium: Uses basic position evaluation to find the best moves, with some randomness added to keep games interesting. Considers material gain, piece positioning, and basic tactics.
+### Difficulty levels
 
-Hard: Implements 3-ply minimax search (looks 3 moves ahead) with full position evaluation. This creates a strong tactical player that can spot combinations and avoid blunders.
+| Level | Behaviour |
+| --- | --- |
+| Very Easy | Random legal moves — for learning how the pieces move |
+| Easy | One-ply search, picks loosely among reasonable moves and blunders often |
+| Medium | Two-ply search with quiescence and a little randomness |
+| Hard | Four-ply search; punishes hanging pieces |
+| Very Hard | Six-ply iterative deepening; will not give away material |
 
-Very Hard: Uses 4-ply minimax search with move ordering optimization. Sorts moves by initial evaluation to improve alpha-beta pruning efficiency, creating an expert-level opponent that plays near-optimal chess.
+## Playing
 
-Smart Features
+The board is keyboard accessible: it is a single tab stop, the arrow keys move
+between squares, and Enter selects or plays. Every square carries a label for
+screen readers. The layout adapts to portrait phones, landscape phones, tablets
+and desktop.
 
-The bot includes several intelligent behaviors:
+## Development
 
-Opening Principles: Avoids moving the king early and encourages piece development
+```sh
+npm install
+npm run dev        # start the dev server
+npm test           # rules, perft and bot tests
+npm run typecheck
+npm run lint
+npm run build
+```
 
-Tactical Awareness: Spots captures, threats, and defensive moves
-
-Endgame Understanding: Maintains strong play throughout all game phases
-
-Adaptive Timing: Takes a 1-second pause before moving to create a natural playing experience
-
-This creates a chess opponent that scales from teaching tool to serious challenge, making it suitable for players of all skill levels.
+<p align="right"><a href="#readme-top">back to top</a></p>
