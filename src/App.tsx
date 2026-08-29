@@ -52,12 +52,19 @@ function App() {
   } = controller;
 
   const [showDifficulty, setShowDifficulty] = useState(true);
-  // A dismissed result banner must reappear when the next game ends.
   const [resultDismissed, setResultDismissed] = useState(false);
 
-  useEffect(() => {
-    if (!state.gameOver) setResultDismissed(false);
-  }, [state.gameOver]);
+  // A dismissed result banner must reappear when the next game ends, so the
+  // two actions that can un-end a game clear the flag as they go. Deriving it
+  // from an effect on `gameOver` would fire a second render every time.
+  const startNewGame = () => {
+    setResultDismissed(false);
+    newGame();
+  };
+  const takeBackMove = () => {
+    setResultDismissed(false);
+    undo();
+  };
 
   const status = (() => {
     if (state.isCheckmate) {
@@ -72,13 +79,20 @@ function App() {
         Icon: Handshake,
       };
     }
-    if (isThinking) {
-      return { text: 'Bot is thinking…', tone: 'text-violet-300', Icon: Loader2 };
-    }
+    // Check outranks the thinking message: that the bot is in check is the more
+    // useful fact, and it is only ever true while the bot is on the clock. The
+    // spinner still turns, so the move is not mistaken for a stalled game.
     if (state.isCheck) {
       return state.currentPlayer === 'white'
         ? { text: 'You are in check', tone: 'text-rose-300', Icon: AlertCircle }
-        : { text: 'The bot is in check', tone: 'text-orange-300', Icon: AlertCircle };
+        : {
+            text: 'The bot is in check',
+            tone: 'text-orange-300',
+            Icon: isThinking ? Loader2 : AlertCircle,
+          };
+    }
+    if (isThinking) {
+      return { text: 'Bot is thinking…', tone: 'text-violet-300', Icon: Loader2 };
     }
     return state.currentPlayer === 'white'
       ? { text: 'Your move', tone: 'text-sky-300', Icon: Crown }
@@ -140,7 +154,7 @@ function App() {
           <div className="flex w-full max-w-[34rem] flex-wrap justify-center gap-2">
             <button
               type="button"
-              onClick={newGame}
+              onClick={startNewGame}
               aria-label="Start a new game"
               className={`${CONTROL_BUTTON} bg-sky-600 hover:bg-sky-500`}
             >
@@ -149,7 +163,7 @@ function App() {
             </button>
             <button
               type="button"
-              onClick={undo}
+              onClick={takeBackMove}
               disabled={!canUndo}
               aria-label="Take back your last move"
               className={`${CONTROL_BUTTON} bg-slate-700 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40`}
@@ -221,7 +235,7 @@ function App() {
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
-                onClick={newGame}
+                onClick={startNewGame}
                 className="flex-1 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-500"
               >
                 Play again
