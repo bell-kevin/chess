@@ -106,6 +106,11 @@ interface DifficultyProfile {
 const PROFILES: Record<Difficulty, DifficultyProfile> = {
   'very-easy': { maxDepth: 1, timeBudgetMs: 50, useQuiescence: false, slackCentipawns: Infinity, blunderChance: 1 },
   easy: { maxDepth: 1, timeBudgetMs: 150, useQuiescence: false, slackCentipawns: 250, blunderChance: 0.25 },
+  // The step up from easy is a second ply: it answers its own move with your
+  // best reply, so it stops hanging pieces outright. Without quiescence it
+  // still stops counting after the first recapture, which is what keeps it
+  // short of medium.
+  casual: { maxDepth: 2, timeBudgetMs: 250, useQuiescence: false, slackCentipawns: 140, blunderChance: 0.12 },
   medium: { maxDepth: 2, timeBudgetMs: 400, useQuiescence: true, slackCentipawns: 60, blunderChance: 0.05 },
   hard: { maxDepth: 4, timeBudgetMs: 1200, useQuiescence: true, slackCentipawns: 0, blunderChance: 0 },
   'very-hard': { maxDepth: 6, timeBudgetMs: 3000, useQuiescence: true, slackCentipawns: 0, blunderChance: 0 },

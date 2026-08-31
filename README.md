@@ -50,6 +50,7 @@ the board — which matters most on a phone.
 | --- | --- |
 | Very Easy | Random legal moves — for learning how the pieces move |
 | Easy | One-ply search, picks loosely among reasonable moves and blunders often |
+| Casual | Two-ply search without quiescence — sees the reply to its own move, but not the trade that follows |
 | Medium | Two-ply search with quiescence and a little randomness |
 | Hard | Four-ply search; punishes hanging pieces |
 | Very Hard | Six-ply iterative deepening; will not give away material |
