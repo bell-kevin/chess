@@ -40,10 +40,16 @@ export const CapturedPieces = ({ moveHistory, color }: CapturedPiecesProps) => {
           ? `${color} has lost: ${pieces.join(', ')}`
           : `${color} has lost no pieces`}
       </span>
+      {/*
+        Off the board there is no wood square to sit on, so Black's glyphs
+        cannot take the board's dark fill -- it lands on the page gradient's
+        own slate-900. Both sides are lifted clear of the background and told
+        apart by how light they are instead.
+      */}
       <span
         aria-hidden="true"
         className={`text-lg leading-none tracking-tighter ${
-          color === 'white' ? 'text-slate-200' : 'text-slate-900'
+          color === 'white' ? 'text-white' : 'text-slate-400'
         }`}
       >
         {pieces.map((type, index) => (
