@@ -4,8 +4,7 @@
 
 A chess game against an AI opponent, built with React, TypeScript and Vite.
 
-Play it here: <https://bell-kevin.github.io/chess/> — or at
-<https://playchessonline.org/>
+Play it here: <https://bell-kevin.github.io/chess/>
 
 ## Rules
 
@@ -87,4 +86,4 @@ from the project path (`/chess/`), a domain root, or a custom domain. To serve
 it from a custom domain, point the DNS at GitHub Pages and set the domain under
 **Settings → Pages**.
 
-<p align="right"><a href="#readme-top">back to top</a></p>
+<p align="left"><a href="#readme-top">back to top</a></p>
