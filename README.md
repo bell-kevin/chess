@@ -55,6 +55,31 @@ the board — which matters most on a phone.
 | Hard | Four-ply search; punishes hanging pieces |
 | Very Hard | Six-ply iterative deepening; will not give away material |
 
+## Win mode
+
+Win mode turns the engine on your own position and tells you what to play. It
+is off by default; the switch sits at the top of the side panel.
+
+While it is on, every one of your turns is searched **at full strength,
+whatever difficulty the game is set to** — the point of a hint is that it is
+the best move on the board, not the move a beginner-level opponent would find.
+The recommendation is shown three ways at once, so it lands whether or not you
+read notation:
+
+- an **arrow on the board**, from the piece to the square it should go to,
+- the move in **algebraic notation**, and the same move **in words** ("move
+  your knight from g1 to f3, taking the bishop"),
+- what it is **worth** — a forced mate is counted in moves, anything else is
+  scored in pawns, along with the line the engine expects to follow.
+
+It says so plainly when a position is not winning: a mode that called every
+move a winning one would only be lying about the game you are in.
+
+The hint search runs on a **worker of its own**, separate from the one the
+opponent thinks on, so asking for hints never delays the bot's own replies. A
+hint you have already moved past is abandoned outright rather than left running
+on a board nobody is looking at.
+
 ## Playing
 
 The board is keyboard accessible: it is a single tab stop, the arrow keys move

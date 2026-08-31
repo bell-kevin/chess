@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ChessGame, STARTING_FEN } from '../ChessGame';
 import { ChessBot } from '../ChessBot';
+import { analysePosition } from '../analysis';
 import { getSquareName, parseSquareName } from '../utils';
 import { Difficulty, Move } from '../types';
 
@@ -169,6 +170,110 @@ describe('bot safety', () => {
 
     // Every position reached must still round trip through FEN.
     expect(() => new ChessGame(game.toFEN())).not.toThrow();
+  });
+});
+
+describe('analysis', () => {
+  it('reports a mate in one as a mate in one', () => {
+    const game = new ChessGame('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1');
+    const analysis = new ChessBot('very-easy').analyse(game);
+    expect(describeMove(analysis!.move)).toBe('a1a8');
+    expect(analysis!.mateIn).toBe(1);
+    expect(analysis!.line).toHaveLength(1);
+  });
+
+  it('counts a forced mate in two, and gives the line that forces it', () => {
+    // Ra8+ forces the knight to interpose on b8 or d8; the rook takes it and
+    // mates, because neither blocking square is next to the black king.
+    const game = new ChessGame('6k1/5ppp/2n5/8/8/8/8/R5K1 w - - 0 1');
+    const analysis = new ChessBot('very-hard').analyse(game);
+    expect(analysis!.mateIn).toBe(2);
+    expect(analysis!.line.length).toBeGreaterThanOrEqual(3);
+
+    // Every move of the line must actually be playable, in order.
+    for (const move of analysis!.line) {
+      expect(game.makeMove(move.from, move.to, move.promotion)).not.toBeNull();
+    }
+    expect(game.getGameState().isCheckmate).toBe(true);
+  });
+
+  it('sees the mate coming when it is on the receiving end', () => {
+    // The rook on b7 takes the seventh rank away, so Black's only move is
+    // Kg8, and Ra8 then mates. The count is negative because Black is mated.
+    const game = new ChessGame('7k/1R6/8/8/8/8/8/R6K b - - 0 1');
+    const analysis = new ChessBot('very-hard').analyse(game, { maxDepth: 4 });
+    expect(analysis!.mateIn).toBeLessThan(0);
+  });
+
+  it('ignores the difficulty it was configured with', () => {
+    // 'very-easy' plays at random, but a hint has to be the strongest move.
+    const game = new ChessGame('3r3k/8/8/8/3Q4/8/8/6K1 b - - 0 1');
+    const analysis = new ChessBot('very-easy', { random: fixedRandom(0.99) }).analyse(
+      game,
+    );
+    expect(describeMove(analysis!.move)).toBe('d8d4');
+    expect(analysis!.score).toBeGreaterThan(0);
+  });
+
+  it('scores from the point of view of the side to move', () => {
+    const game = new ChessGame('4k3/8/8/8/8/8/8/R3K3 b - - 0 1');
+    const analysis = new ChessBot('medium').analyse(game, { maxDepth: 2 });
+    // Black is a rook down, so Black's own best move still scores badly.
+    expect(analysis!.score).toBeLessThan(-300);
+  });
+
+  it('leaves the analysed game untouched', () => {
+    const game = new ChessGame(STARTING_FEN);
+    const before = game.toFEN();
+    const analysis = new ChessBot('medium').analyse(game, { maxDepth: 2 });
+    expect(game.toFEN()).toBe(before);
+    expect(game.getMoveHistory()).toHaveLength(0);
+    // The move must come from the caller's own list, ready to be played.
+    expect(game.makeMove(analysis!.move.from, analysis!.move.to)).not.toBeNull();
+  });
+
+  it('returns null when the game is already over', () => {
+    const mated = new ChessGame('R5k1/5ppp/8/8/8/8/8/6K1 b - - 0 1');
+    expect(new ChessBot('hard').analyse(mated)).toBeNull();
+  });
+
+  it('still answers when the time budget expires before the first iteration', () => {
+    const game = new ChessGame(
+      'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1',
+    );
+    const analysis = new ChessBot('very-hard').analyse(game, { timeBudgetMs: 0 });
+    expect(analysis).not.toBeNull();
+    expect(analysis!.depth).toBe(0);
+    expect(analysis!.mateIn).toBeNull();
+    expect(analysis!.line).toHaveLength(1);
+  });
+});
+
+describe('win mode hints', () => {
+  it('names the move it recommends', () => {
+    const hint = analysePosition('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1');
+    expect(hint).not.toBeNull();
+    expect(getSquareName(hint!.move.from)).toBe('a1');
+    expect(getSquareName(hint!.move.to)).toBe('a8');
+    expect(hint!.line).toEqual(['Ra8#']);
+    expect(hint!.mateIn).toBe(1);
+  });
+
+  it('writes the whole line in notation, ending on the mate', () => {
+    const hint = analysePosition('6k1/5ppp/2n5/8/8/8/8/R5K1 w - - 0 1');
+    expect(hint!.line[0]).toBe('Ra8+');
+    expect(hint!.line).toHaveLength(3);
+    expect(hint!.line[2]).toMatch(/#$/);
+  });
+
+  it('recommends a promotion with the piece to promote to', () => {
+    const hint = analysePosition('3r4/4P3/8/8/8/8/8/K6k w - - 0 1');
+    expect(hint!.move.promotion).toBe('queen');
+    expect(hint!.line[0]).toBe('exd8=Q');
+  });
+
+  it('has nothing to recommend once the game is over', () => {
+    expect(analysePosition('R5k1/5ppp/8/8/8/8/8/6K1 b - - 0 1')).toBeNull();
   });
 });
 
