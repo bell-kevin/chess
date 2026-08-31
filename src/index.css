@@ -80,6 +80,16 @@
     background-color: rgb(15 23 42 / 0.35);
   }
 
+  /* Win mode: the square the recommended piece should land on. Dashed, so it
+     is never mistaken for the ring around a capture. */
+  .win-hint-to::after {
+    content: '';
+    position: absolute;
+    inset: 7%;
+    border-radius: 9999px;
+    border: max(2px, calc(var(--square-size) * 0.055)) dashed rgb(15 23 42 / 0.55);
+  }
+
   /* A ring instead of a dot when the destination holds a piece to capture. */
   .capture-hint::after {
     content: '';

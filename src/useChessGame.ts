@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChessGame } from './ChessGame';
+import { BotAnalysis } from './botProtocol';
 import { BotRunner, createBotRunner } from './botRunner';
 import { Difficulty, GameState, Move, Position, PromotionPiece } from './types';
 import { getOppositeColor, isSamePosition } from './utils';
@@ -8,6 +9,23 @@ import { getOppositeColor, isSamePosition } from './utils';
 export interface PendingPromotion {
   from: Position;
   to: Position;
+}
+
+/**
+ * What win mode is showing: the move to play now, and what the search made of
+ * the position behind it.
+ */
+export interface WinHint {
+  /** The recommended move, taken from the game's own legal move list. */
+  move: Move;
+  /** Centipawns from the player's point of view; positive means they are better. */
+  score: number;
+  /** Moves to mate: positive the player gives it, negative they receive it. */
+  mateIn: number | null;
+  /** How deep the search got, in plies. */
+  depth: number;
+  /** The expected continuation in algebraic notation, recommended move first. */
+  line: string[];
 }
 
 export interface ChessGameController {
@@ -20,6 +38,13 @@ export interface ChessGameController {
   difficulty: Difficulty;
   playerColor: 'white';
   canUndo: boolean;
+  /** Whether the winning move is being shown to the player. */
+  winMode: boolean;
+  /** The move to play, once win mode has found one for this position. */
+  hint: WinHint | null;
+  /** True while the hint for the current position is still being searched. */
+  isHinting: boolean;
+  setWinMode: (on: boolean) => void;
   selectSquare: (position: Position) => void;
   completePromotion: (piece: PromotionPiece) => void;
   cancelPromotion: () => void;
@@ -34,6 +59,31 @@ const BOT_COLOR = getOppositeColor(PLAYER_COLOR);
 /** Keeps the bot from answering instantly, which reads as jarring. */
 const MIN_THINKING_MS = 350;
 
+/**
+ * Matches an analysis back onto the game's own legal moves, so the hint carries
+ * the piece, the capture and the castling flag that describing it needs.
+ * Returns `null` when the position no longer contains that move, which is what
+ * a reply that outlived its board looks like.
+ */
+const toHint = (game: ChessGame, analysis: BotAnalysis): WinHint | null => {
+  const move = game
+    .getLegalMovesFrom(analysis.move.from)
+    .find(
+      (candidate) =>
+        isSamePosition(candidate.to, analysis.move.to) &&
+        candidate.promotion === analysis.move.promotion,
+    );
+  if (!move) return null;
+
+  return {
+    move,
+    score: analysis.score,
+    mateIn: analysis.mateIn,
+    depth: analysis.depth,
+    line: analysis.line,
+  };
+};
+
 export const useChessGame = (
   initialDifficulty: Difficulty = 'medium',
 ): ChessGameController => {
@@ -45,6 +95,16 @@ export const useChessGame = (
     null,
   );
   const [difficulty, setDifficultyState] = useState<Difficulty>(initialDifficulty);
+  const [winMode, setWinMode] = useState(false);
+  /**
+   * A hint together with the state it was searched for. Holding the two
+   * together is what lets `hint` below be derived rather than cleared by hand:
+   * a result for any other position simply stops matching.
+   */
+  const [hintResult, setHintResult] = useState<{
+    position: GameState;
+    hint: WinHint | null;
+  } | null>(null);
 
   const isThinking = state.currentPlayer === BOT_COLOR && !state.gameOver;
 
@@ -65,10 +125,13 @@ export const useChessGame = (
    * older token is discarded rather than played.
    */
   const turnToken = useRef(0);
+  /** The same guard for hints, kept apart so the two never invalidate each other. */
+  const hintToken = useRef(0);
 
   useEffect(
     () => () => {
       turnToken.current += 1;
+      hintToken.current += 1;
       runnerRef.current?.dispose();
       runnerRef.current = null;
     },
@@ -87,6 +150,16 @@ export const useChessGame = (
   // move list internally, and memoising on `selected` alone would serve stale
   // moves the moment the board changed underneath a live selection.
   const candidateMoves = selected ? game.getLegalMovesFrom(selected) : [];
+
+  const showsHint =
+    winMode &&
+    !state.gameOver &&
+    state.currentPlayer === PLAYER_COLOR &&
+    pendingPromotion === null;
+  // Matching on the state the search was given, rather than on a flag cleared
+  // by hand, is what stops a hint from ever outliving the board it describes.
+  const isHintCurrent = hintResult?.position === state;
+  const hint = showsHint && isHintCurrent ? hintResult.hint : null;
 
   const selectSquare = useCallback(
     (position: Position) => {
@@ -211,6 +284,27 @@ export const useChessGame = (
     };
   }, [difficulty, game, getRunner, state.currentPlayer, state.gameOver, sync]);
 
+  /**
+   * Win mode: search the position from the player's side whenever it is their
+   * turn. `state` is a fresh object after every move, so this re-runs on its
+   * own as the game goes on.
+   */
+  useEffect(() => {
+    const token = ++hintToken.current;
+    if (!showsHint) return;
+
+    const position = state;
+    getRunner()
+      .requestAnalysis(game.toFEN())
+      .then((analysis) => {
+        if (token !== hintToken.current) return;
+        setHintResult({ position, hint: analysis ? toHint(game, analysis) : null });
+      })
+      .catch((error) => {
+        console.error('Win mode analysis failed:', error);
+      });
+  }, [game, getRunner, showsHint, state]);
+
   return {
     state,
     selected,
@@ -220,6 +314,10 @@ export const useChessGame = (
     difficulty,
     playerColor: PLAYER_COLOR,
     canUndo: state.moveHistory.length > 0 && !isThinking,
+    winMode,
+    hint,
+    isHinting: showsHint && !isHintCurrent,
+    setWinMode,
     selectSquare,
     completePromotion,
     cancelPromotion,

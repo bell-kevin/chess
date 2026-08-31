@@ -116,8 +116,46 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
   'very-hard': { maxDepth: 6, timeBudgetMs: 3000, useQuiescence: true, slackCentipawns: 0, blunderChance: 0 },
 };
 
+/**
+ * Win mode analyses at full strength whatever the game's difficulty is set to:
+ * a hint is only worth showing if it is the best move on the board.
+ */
+const ANALYSIS_MAX_DEPTH = 6;
+const ANALYSIS_TIME_BUDGET_MS = 2500;
+
 /** Raised to unwind the search when the time budget runs out. */
 class SearchTimeout extends Error {}
+
+/** A root move with its score, and the line behind it while a PV is collected. */
+interface RootResult {
+  move: Move;
+  score: number;
+  line?: Move[];
+}
+
+/** What `analyse` reports back: the move to play and what it is worth. */
+export interface Analysis {
+  /** The move to play, taken from the caller's own legal move list. */
+  move: Move;
+  /** Centipawns from the side to move's point of view; positive favours them. */
+  score: number;
+  /**
+   * Moves until mate: positive when the side to move gives it, negative when
+   * they receive it, `null` when the search found no forced mate.
+   */
+  mateIn: number | null;
+  /** The deepest iteration that ran to completion, 0 if none did. */
+  depth: number;
+  /** The principal variation, recommended move first. */
+  line: Move[];
+}
+
+/** Reads a search score as a distance to mate, or `null` if it is not one. */
+const toMateIn = (score: number): number | null => {
+  if (score > MATE_THRESHOLD) return Math.ceil((MATE_SCORE - score) / 2);
+  if (score < -MATE_THRESHOLD) return -Math.ceil((MATE_SCORE + score) / 2);
+  return null;
+};
 
 export interface BotOptions {
   /** Injectable for deterministic tests. */
@@ -143,6 +181,10 @@ export class ChessBot {
   private nodes = 0;
   /** Two killer moves per ply: quiet moves that caused a cutoff at that depth. */
   private killers: (Move | null)[][] = [];
+  /** Triangular table of principal variations: `pv[ply]` is the line from there. */
+  private pv: Move[][] = [];
+  /** Only `analyse` needs the line, so playing a move does not pay for it. */
+  private collectPv = false;
 
   constructor(difficulty: Difficulty = 'medium', options: BotOptions = {}) {
     this.difficulty = difficulty;
@@ -193,7 +235,7 @@ export class ChessBot {
       this.game.getLegalMoves(this.game.getCurrentPlayer()),
       0,
     );
-    let scored: { move: Move; score: number }[] = searchMoves.map((move, index) => ({
+    let scored: RootResult[] = searchMoves.map((move, index) => ({
       move,
       // Descending so the heuristic order survives the first stable sort.
       score: -index,
@@ -235,6 +277,72 @@ export class ChessBot {
   }
 
 
+  /**
+   * Searches at full strength and reports what it found: the move to play, how
+   * the position stands after it, and the line it expects to follow. Unlike
+   * `findBestMove` this ignores the configured difficulty and never randomises
+   * among near-equal moves - a hint that is only the bot's idea of a good move
+   * would be worse than no hint at all.
+   *
+   * Returns `null` only when the position has no legal moves.
+   */
+  public analyse(
+    game: ChessGame,
+    options: { maxDepth?: number; timeBudgetMs?: number } = {},
+  ): Analysis | null {
+    const rootMoves = game.getLegalMoves(game.getCurrentPlayer());
+    if (rootMoves.length === 0) return null;
+
+    const maxDepth = options.maxDepth ?? ANALYSIS_MAX_DEPTH;
+
+    this.game = game.clone({ trackRepetition: false });
+    this.nodes = 0;
+    this.deadline =
+      Date.now() +
+      (options.timeBudgetMs ?? this.timeBudgetOverride ?? ANALYSIS_TIME_BUDGET_MS);
+    this.killers = Array.from({ length: maxDepth + MAX_QUIESCENCE_PLY + 2 }, () => [
+      null,
+      null,
+    ]);
+    this.pv = [];
+    this.collectPv = true;
+
+    let scored: RootResult[] = this.orderMoves(
+      this.game.getLegalMoves(this.game.getCurrentPlayer()),
+      0,
+    ).map((move, index) => ({ move, score: -index, line: [move] }));
+    let depthReached = 0;
+
+    try {
+      for (let depth = 1; depth <= maxDepth; depth++) {
+        try {
+          scored = this.searchRoot(depth, scored, true);
+          depthReached = depth;
+        } catch (error) {
+          if (error instanceof SearchTimeout) break;
+          throw error;
+        }
+        // A forced mate is found; deeper search cannot improve on it.
+        if (Math.abs(scored[0].score) > MATE_THRESHOLD) break;
+      }
+    } finally {
+      this.collectPv = false;
+    }
+
+    const best = scored[0];
+    // Without a completed iteration the score is just the ordering heuristic,
+    // so report the static evaluation rather than a meaningless number.
+    const searched = depthReached > 0;
+
+    return {
+      move: this.toCallerMove(best.move, rootMoves),
+      score: searched ? best.score : this.evaluate(game.getCurrentPlayer(), game),
+      mateIn: searched ? toMateIn(best.score) : null,
+      depth: depthReached,
+      line: best.line ?? [best.move],
+    };
+  }
+
   private pickRandom<T>(items: T[]): T {
     return items[Math.floor(this.random() * items.length) % items.length];
   }
@@ -253,11 +361,11 @@ export class ChessBot {
    */
   private searchRoot(
     depth: number,
-    previous: { move: Move; score: number }[],
+    previous: RootResult[],
     useQuiescence: boolean,
-  ): { move: Move; score: number }[] {
+  ): RootResult[] {
     const ordered = [...previous].sort((a, b) => b.score - a.score);
-    const results: { move: Move; score: number }[] = [];
+    const results: RootResult[] = [];
 
     for (const { move } of ordered) {
       this.game.applyMove(move);
@@ -267,7 +375,9 @@ export class ChessBot {
       } finally {
         this.game.revertMove();
       }
-      results.push({ move, score });
+      results.push(
+        this.collectPv ? { move, score, line: [move, ...this.pv[1]] } : { move, score },
+      );
     }
 
     return results.sort((a, b) => b.score - a.score);
@@ -281,6 +391,9 @@ export class ChessBot {
     useQuiescence: boolean,
   ): number {
     this.checkTime();
+    // Cleared before any of this node's returns, so a parent that reads it back
+    // after a losing move never picks up a sibling's stale line.
+    if (this.collectPv) this.pv[ply] = [];
 
     // Repetition is not tracked on the search clone, but the fifty-move rule and
     // dead positions are both cheap and worth knowing about.
@@ -313,7 +426,10 @@ export class ChessBot {
       }
 
       if (score > best) best = score;
-      if (score > alpha) alpha = score;
+      if (score > alpha) {
+        alpha = score;
+        if (this.collectPv) this.pv[ply] = [move, ...this.pv[ply + 1]];
+      }
       if (alpha >= beta) {
         if (!move.capturedPiece && !move.promotion) this.rememberKiller(move, ply);
         break;
@@ -335,6 +451,7 @@ export class ChessBot {
     qDepth: number,
   ): number {
     this.checkTime();
+    if (this.collectPv) this.pv[ply] = [];
 
     const color = this.game.getCurrentPlayer();
     const inCheck = this.game.isKingInCheck(color);
@@ -346,6 +463,8 @@ export class ChessBot {
     if (qDepth >= MAX_QUIESCENCE_PLY) return standPat;
     if (!inCheck) {
       if (standPat >= beta) return standPat;
+      // Standing pat leaves `pv[ply]` empty on purpose: the line ends here,
+      // with the side to move declining to capture further.
       if (standPat > alpha) alpha = standPat;
     }
 
@@ -364,7 +483,10 @@ export class ChessBot {
         this.game.revertMove();
       }
       if (score > best) best = score;
-      if (score > alpha) alpha = score;
+      if (score > alpha) {
+        alpha = score;
+        if (this.collectPv) this.pv[ply] = [move, ...this.pv[ply + 1]];
+      }
       if (alpha >= beta) break;
     }
 

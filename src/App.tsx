@@ -12,6 +12,7 @@ import {
 import { ChessBoard } from './ChessBoard';
 import { PromotionDialog } from './PromotionDialog';
 import { CapturedPieces, MoveHistory } from './GamePanels';
+import { WinModePanel } from './WinModePanel';
 import { useChessGame } from './useChessGame';
 import { Difficulty } from './types';
 
@@ -43,7 +44,12 @@ function App() {
     pendingPromotion,
     isThinking,
     difficulty,
+    playerColor,
     canUndo,
+    winMode,
+    hint,
+    isHinting,
+    setWinMode,
     selectSquare,
     completePromotion,
     cancelPromotion,
@@ -144,6 +150,7 @@ function App() {
             selected={selected}
             candidateMoves={candidateMoves}
             disabled={state.gameOver || isThinking || pendingPromotion !== null}
+            hint={hint && { from: hint.move.from, to: hint.move.to }}
             onSquareClick={selectSquare}
           />
 
@@ -185,6 +192,16 @@ function App() {
         </div>
 
         <aside className="w-full max-w-[34rem] rounded-xl bg-slate-800/60 p-4 short:w-60 short:shrink-0 lg:w-72 lg:shrink-0">
+          <div className="mb-4">
+            <WinModePanel
+              enabled={winMode}
+              hint={hint}
+              isHinting={isHinting}
+              isPlayersTurn={state.currentPlayer === playerColor}
+              gameOver={state.gameOver}
+              onToggle={setWinMode}
+            />
+          </div>
           <MoveHistory moveHistory={state.moveHistory} />
           <dl className="mt-4 space-y-1 border-t border-slate-700 pt-3 text-xs text-slate-400">
             <div className="flex justify-between">
