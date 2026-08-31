@@ -19,6 +19,7 @@ const fixedRandom = (value: number) => () => value;
 const ALL_DIFFICULTIES: Difficulty[] = [
   'very-easy',
   'easy',
+  'casual',
   'medium',
   'hard',
   'very-hard',
@@ -52,6 +53,16 @@ describe('bot tactics', () => {
     const bot = new ChessBot('hard', { random: fixedRandom(0) });
     const move = bot.findBestMove(game);
     expect(describeMove(move)).not.toBe('a1b7');
+  });
+
+  it('sees the recapture that a one-ply search misses', () => {
+    // The same trap as above, at the level that first has a ply to spare for
+    // it: easy evaluates straight after Qxb7 and likes the free pawn, while
+    // casual searches Black's reply and finds Rxb7.
+    const game = new ChessGame('1r5k/1p6/8/8/8/8/6PP/Q5K1 w - - 0 1');
+    // 0.99 clears the blunder roll, so this exercises the search itself.
+    const bot = new ChessBot('casual', { random: fixedRandom(0.99) });
+    expect(describeMove(bot.findBestMove(game))).not.toBe('a1b7');
   });
 
   it('recaptures instead of evaluating mid-trade', () => {

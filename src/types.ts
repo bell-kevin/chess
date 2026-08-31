@@ -1,6 +1,6 @@
 export type PieceType = 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn';
 export type PieceColor = 'white' | 'black';
-export type Difficulty = 'very-easy' | 'easy' | 'medium' | 'hard' | 'very-hard';
+export type Difficulty = 'very-easy' | 'easy' | 'casual' | 'medium' | 'hard' | 'very-hard';
 
 /** Pieces a pawn may promote to. A pawn may never become a king or stay a pawn. */
 export type PromotionPiece = 'queen' | 'rook' | 'bishop' | 'knight';

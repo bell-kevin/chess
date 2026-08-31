@@ -18,6 +18,7 @@ import { Difficulty } from './types';
 const DIFFICULTIES: { value: Difficulty; label: string; description: string }[] = [
   { value: 'very-easy', label: 'Very Easy', description: 'Random legal moves — for learning the rules' },
   { value: 'easy', label: 'Easy', description: 'Spots captures, but blunders often' },
+  { value: 'casual', label: 'Casual', description: 'Sees your reply, but misjudges longer trades' },
   { value: 'medium', label: 'Medium', description: 'Two-ply search with a little randomness' },
   { value: 'hard', label: 'Hard', description: 'Four-ply search; punishes loose pieces' },
   { value: 'very-hard', label: 'Very Hard', description: 'Deep search with quiescence — no free material' },
@@ -120,7 +121,7 @@ function App() {
           */}
           <header className="text-center short:hidden">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Chess Master</h1>
-            <p className="text-sm text-slate-400">Play the AI · five difficulty levels</p>
+            <p className="text-sm text-slate-400">Play the AI · six difficulty levels</p>
           </header>
 
           <div className="flex w-full max-w-[34rem] items-center justify-between gap-3 px-1">
