@@ -86,4 +86,6 @@ from the project path (`/chess/`), a domain root, or a custom domain. To serve
 it from a custom domain, point the DNS at GitHub Pages and set the domain under
 **Settings → Pages**.
 
+Play it here: https://bell-kevin.github.io/chess/
+
 <p align="left"><a href="#readme-top">back to top</a></p>
