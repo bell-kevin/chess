@@ -88,4 +88,8 @@ it from a custom domain, point the DNS at GitHub Pages and set the domain under
 
 Play it here: https://bell-kevin.github.io/chess/
 
+or here:
+
+https://playchessonline.org/
+
 <p align="left"><a href="#readme-top">back to top</a></p>
