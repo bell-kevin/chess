@@ -4,7 +4,8 @@
 
 A chess game against an AI opponent, built with React, TypeScript and Vite.
 
-https://playchessonline.org/
+Play it here: <https://bell-kevin.github.io/chess/> — or at
+<https://playchessonline.org/>
 
 ## Rules
 
@@ -72,5 +73,18 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+## Deployment
+
+Every push to `main` builds the app and publishes it to GitHub Pages via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which gates the
+deploy on `typecheck` and the test suite. The site then updates on its own; no
+`gh-pages` branch is involved. A fork needs **Settings → Pages → Build and
+deployment** set to **GitHub Actions** once before its first deploy.
+
+The Vite build uses `base: './'`, so the same `dist/` works whether it is served
+from the project path (`/chess/`), a domain root, or a custom domain. To serve
+it from a custom domain, point the DNS at GitHub Pages and set the domain under
+**Settings → Pages**.
 
 <p align="right"><a href="#readme-top">back to top</a></p>
